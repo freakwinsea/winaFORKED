@@ -103,3 +103,21 @@ bash scripts/teal_transform/llama_3_8b.bash [MODEL_PATH]
 bash scripts/teal_transform/phi_4_14b.bash [MODEL_PATH]
 ```
 
+
+## Dockerized WINA UI
+
+A Dockerfile and a small Flask web interface are provided for local experimentation.
+To build the image and start the interface run:
+
+```bash
+docker build -t wina-ui .
+docker run -p 8080:8080 -v /path/to/models:/models wina-ui
+```
+
+Alternatively, use docker-compose:
+
+```bash
+docker compose up --build
+```
+
+Access `http://localhost:8080` in your browser to configure a model path, sparsity level and run WINA or baseline evaluation. The mounted `/models` volume can contain any compatible model files.
