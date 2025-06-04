@@ -1,0 +1,6 @@
+{
+  "model": "/models/my_model",
+  "sparsity": 0.5,
+  "mode": "wina",
+  "greedy": false
+}

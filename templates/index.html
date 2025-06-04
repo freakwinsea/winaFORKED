@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+  <title>WINA Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    textarea { width: 100%; height: 300px; }
+  </style>
+</head>
+<body>
+  <h1>WINA Inference Dashboard</h1>
+  <label>Model Path or HF ID:<br>
+    <input type="text" id="model" size="50" value="/models/my_model">
+  </label><br><br>
+  <label>Sparsity:
+    <input type="number" id="sparsity" value="0.5" step="0.01" min="0" max="1">
+  </label><br><br>
+  <label><input type="radio" name="mode" value="wina" checked> WINA</label>
+  <label><input type="radio" name="mode" value="teal"> TEAL</label><br><br>
+  <label><input type="checkbox" id="greedy"> Enable greedy sparsity allocation</label><br><br>
+  <button onclick="start('baseline')">Run Baseline</button>
+  <button onclick="start('wina')">Run WINA</button>
+  <br><br>
+  Preset: <select id="presetSelect"></select>
+  <input type="text" id="presetName" placeholder="Preset name">
+  <button onclick="loadPreset()">Load</button>
+  <button onclick="savePreset()">Save</button>
+  <br><br>
+  <textarea id="log" readonly></textarea>
+
+<script>
+var presets = {{ presets|tojson }};
+function appendLog(msg){
+  var log = document.getElementById('log');
+  log.value += msg + "\n";
+  log.scrollTop = log.scrollHeight;
+}
+function updatePresetList(){
+  var select = document.getElementById('presetSelect');
+  select.innerHTML = '';
+  presets.forEach(function(p){
+    var opt = document.createElement('option');
+    opt.value = p; opt.textContent = p;
+    select.appendChild(opt);
+  });
+}
+updatePresetList();
+function start(type){
+  document.getElementById('log').value = '';
+  fetch('/run', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model: document.getElementById('model').value,
+      sparsity: parseFloat(document.getElementById('sparsity').value),
+      mode: document.querySelector('input[name="mode"]:checked').value,
+      greedy: document.getElementById('greedy').checked,
+      run_type: type
+    })
+  }).then(r=>{
+    if(!r.ok){appendLog('Failed to start: '+r.statusText);}
+  });
+  var source = new EventSource('/stream');
+  source.onmessage = function(e){ appendLog(e.data); };
+  source.onerror = function(){ source.close(); };
+}
+function loadPreset(){
+  var name = document.getElementById('presetSelect').value || document.getElementById('presetName').value;
+  if(!name) return;
+  fetch('/presets/'+name).then(r=>r.json()).then(cfg=>{
+    document.getElementById('model').value = cfg.model || '';
+    document.getElementById('sparsity').value = cfg.sparsity || 0.5;
+    document.querySelector('input[name="mode"][value="'+(cfg.mode||'wina')+'"]').checked = true;
+    document.getElementById('greedy').checked = cfg.greedy || false;
+  });
+}
+function savePreset(){
+  var name = document.getElementById('presetName').value;
+  if(!name) return;
+  var cfg = {
+    model: document.getElementById('model').value,
+    sparsity: parseFloat(document.getElementById('sparsity').value),
+    mode: document.querySelector('input[name="mode"]:checked').value,
+    greedy: document.getElementById('greedy').checked
+  };
+  fetch('/presets/'+name, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg)}).then(()=>{
+    if(!presets.includes(name)) presets.push(name);
+    updatePresetList();
+  });
+}
+</script>
+</body>
+</html>
